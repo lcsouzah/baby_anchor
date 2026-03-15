@@ -10,6 +10,7 @@ describe("baby_anchor (ACBA profile)", () => {
   anchor.setProvider(provider);
 
   const program = anchor.workspace.BabyAnchor as Program<BabyAnchor>;
+  const acbaAccount = program.account.acbaProfile!;
 
   it("initialize -> record_buy twice -> verify totals + average", async () => {
 const newUser = anchor.web3.Keypair.generate();
@@ -50,7 +51,7 @@ await program.methods
       .signers([newUser])
       .rpc();
 
-    const acct = await program.account.acbaProfile.fetch(profilePda);
+    const acct = await acbaAccount.fetch(profilePda);
 
     console.log("Final:", {
       owner: acct.owner.toBase58(),
@@ -60,6 +61,7 @@ await program.methods
       lastUpdateTs: acct.lastUpdateTs.toString(),
       disciplinedBuyCount: acct.disciplinedBuyCount.toString(),
       buyCount: acct.buyCount.toString(),
+      lastImprovementBps: acct.lastImprovementBps.toString(),
     });
 
     console.log("lastWasDisciplined:", acct.lastWasDisciplined);
@@ -78,6 +80,7 @@ await program.methods
     assert.equal(acct.lastWasDisciplined, true);
     assert.equal(acct.disciplinedBuyCount.toNumber(), 1);
     assert.equal(acct.buyCount.toNumber(), 2);
+    assert.equal(acct.lastImprovementBps.toNumber(), 2000); // 20k bps = 20% improvement from 50 to 40
   });
 
   it("initialize -> bad second buy -> verify discipline", async () => {
@@ -120,7 +123,7 @@ await program.methods
       .signers([newUser])
       .rpc();
 
-    const acct = await program.account.acbaProfile.fetch(profilePda);
+    const acct = await acbaAccount.fetch(profilePda);
 
     console.log("Final bad buy:", {
       owner: acct.owner.toBase58(),
@@ -130,6 +133,7 @@ await program.methods
       lastUpdateTs: acct.lastUpdateTs.toString(),
       disciplinedBuyCount: acct.disciplinedBuyCount.toString(),
       buyCount: acct.buyCount.toString(),
+      lastImprovementBps: acct.lastImprovementBps.toString(),
     });
 
     console.log("lastWasDisciplined:", acct.lastWasDisciplined);
@@ -137,5 +141,6 @@ await program.methods
     assert.equal(acct.lastWasDisciplined, false);
     assert.equal(acct.disciplinedBuyCount.toNumber(), 0);
     assert.equal(acct.buyCount.toNumber(), 2);
+    assert.equal(acct.lastImprovementBps.toNumber(), -4000);
   });
 });

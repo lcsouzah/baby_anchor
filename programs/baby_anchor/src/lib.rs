@@ -21,6 +21,8 @@ pub mod baby_anchor {
         profile.last_was_disciplined = false;
         profile.disciplined_buy_count = 0;
         profile.buy_count = 0;
+        profile.last_improvement_bps = 0;
+        
 
 
         Ok(())
@@ -52,6 +54,29 @@ pub mod baby_anchor {
         } else {
             buy_price_scaled <= old_avg_scaled
         };
+
+    if profile.total_token_units_out == 0 {
+        profile.last_improvement_bps = 0;
+    } else {
+        let old_avg_i128 = i128::try_from(old_avg_scaled).map_err(|_| AcbaError::MathOverflow)?;
+        let buy_price_i128 = i128::try_from(buy_price_scaled).map_err(|_| AcbaError::MathOverflow)?;
+
+        let diff = old_avg_i128
+            .checked_sub(buy_price_i128)
+            .ok_or(AcbaError::MathOverflow)?;
+
+        let scaled_diff = diff
+            .checked_mul(10_000)
+            .ok_or(AcbaError::MathOverflow)?;
+
+        let improvement_bps = scaled_diff
+            .checked_div(old_avg_i128)
+            .ok_or(AcbaError::MathOverflow)?;
+
+        profile.last_improvement_bps =
+            i64::try_from(improvement_bps).map_err(|_| AcbaError::MathOverflow)?;
+
+        }
 
         if profile.last_was_disciplined {
             profile.disciplined_buy_count = profile
