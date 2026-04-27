@@ -3,6 +3,10 @@
   "version": "1.0.0",
   "main": "index.js",
   "license": "MIT",
+  "scripts": {
+    "test": "npx ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts",
+    "simulate": "ts-node -P ./tsconfig.json scripts/simulation-runner.ts"
+  },
   "dependencies": {
     "@coral-xyz/anchor": "^0.32.1"
   },
