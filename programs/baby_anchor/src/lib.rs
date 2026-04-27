@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-declare_id!("4Eek4RvmNAV3N4DYPx1E158b9iZ8cjL5yFScM5eDpXv9");
+declare_id!("4m4kNA7svdf4ikZcb2L5EK1ufdqPrP4G58BUczojszJY");
 
 const SCALE: u128 = 1_000_000_000; // precision scale for avg calc
 
