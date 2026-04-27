@@ -2,8 +2,8 @@ import * as anchor from "@coral-xyz/anchor";
 import { Program, BN } from "@coral-xyz/anchor";
 import type { BabyAnchor } from "../target/types/baby_anchor";
 import { PublicKey, Keypair } from "@solana/web3.js";
-import fs from "fs";
-import path from "path";
+import * as fs from "fs";
+import * as path from "path";
 
 const SCALE = 1_000_000_000n;
 const LAMPORTS_PER_SOL = 1_000_000_000;
@@ -39,9 +39,21 @@ const NUM_STEPS = 50;
 const INITIAL_LAMPORTS = 10 * LAMPORTS_PER_SOL;
 const STEP_SIZE_LAMPORTS = 100_000_000; // ~0.1 SOL per trade
 
+function loadDefaultWallet(): anchor.Wallet {
+  const walletPath = path.join(process.env.HOME ?? ".", ".config/solana/id.json");
+  const secretKey = JSON.parse(fs.readFileSync(walletPath, "utf8")) as number[];
+  return new anchor.Wallet(Keypair.fromSecretKey(Uint8Array.from(secretKey)));
+}
+
 async function main() {
   // Setup
-  const provider = anchor.AnchorProvider.env();
+  const provider = process.env.ANCHOR_PROVIDER_URL && process.env.ANCHOR_WALLET
+    ? anchor.AnchorProvider.env()
+    : new anchor.AnchorProvider(
+        new anchor.web3.Connection("http://127.0.0.1:8899", "confirmed"),
+        loadDefaultWallet(),
+        anchor.AnchorProvider.defaultOptions()
+      );
   anchor.setProvider(provider);
 
   const program = anchor.workspace.BabyAnchor as Program<BabyAnchor>;
@@ -104,10 +116,16 @@ async function main() {
 
   for (let step = 0; step < NUM_STEPS; step++) {
     const price = marketPrices[step];
+    if (price === undefined) {
+      throw new Error(`Missing market price for step ${step}`);
+    }
     console.log(`Step ${step + 1}/${NUM_STEPS} | Market Price: ${price.toFixed(2)}`);
 
     for (let i = 0; i < NUM_TRADERS; i++) {
       const trader = traders[i];
+      if (!trader) {
+        continue;
+      }
       const decision = makeTradeDecision(trader, price, step);
 
       if (decision.action !== "none") {
@@ -239,7 +257,11 @@ function generateMasterCSV(traders: TraderState[], prices: number[]) {
   const rows: string[] = ["Step,MarketPrice," + traders.map((_, i) => `Trader${i + 1}_Action,Trader${i + 1}_Holding`).join(",")];
 
   for (let step = 0; step < prices.length; step++) {
-    let row = `${step},${prices[step].toFixed(2)}`;
+    const marketPrice = prices[step];
+    if (marketPrice === undefined) {
+      continue;
+    }
+    let row = `${step},${marketPrice.toFixed(2)}`;
 
     for (const trader of traders) {
       const stepRecord = trader.steps.find((r) => r.step === step);
