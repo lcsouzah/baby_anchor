@@ -13,6 +13,8 @@ interface TraderState {
   publicKey: PublicKey;
   profilePda: PublicKey;
   lamportsBalance: number;
+  strategy: "conservative" | "aggressive" | "momentum" | "meanReversion" | "random";
+  lastSellStep: number;
   steps: StepRecord[];
 }
 
@@ -74,6 +76,7 @@ async function main() {
   for (let i = 0; i < NUM_TRADERS; i++) {
     const trader = Keypair.generate();
     const publicKey = trader.publicKey;
+    const strategy = getStrategyForIndex(i);
 
     // Airdrop SOL
     const sig = await provider.connection.requestAirdrop(publicKey, INITIAL_LAMPORTS);
@@ -101,6 +104,8 @@ async function main() {
       publicKey,
       profilePda,
       lamportsBalance: INITIAL_LAMPORTS,
+      strategy,
+      lastSellStep: -99,
       steps: [],
     });
 
@@ -126,7 +131,12 @@ async function main() {
       if (!trader) {
         continue;
       }
-      const decision = makeTradeDecision(trader, price, step);
+
+      const profileState = await acbaAccount.fetch(trader.profilePda);
+      const currentTokenHeld = profileState.tokenUnitsHeld.toNumber();
+      const currentAvgCostBasis = new BN(profileState.avgLamportsPerTokenScaled.toString()).toNumber() / 1_000_000_000;
+
+      const decision = makeTradeDecision(trader, price, step, currentTokenHeld, currentAvgCostBasis);
 
       if (decision.action !== "none") {
         try {
@@ -134,6 +144,7 @@ async function main() {
             await executeBuy(program, trader, decision.amount);
           } else if (decision.action === "sell") {
             await executeSell(program, acbaAccount, trader, decision.amount);
+            trader.lastSellStep = step;
           }
 
           // Fetch updated state
@@ -169,6 +180,11 @@ async function main() {
   generateMasterCSV(traders, marketPrices);
   generateTraderCSVs(traders);
 
+  // Print final summary
+  console.log("\n[SUMMARY] Final Trader Statistics:");
+  console.log("===========================================================");
+  await printTraderSummary(acbaAccount, traders);
+
   console.log(`\n[DONE] Simulation complete. Output in: ${OUTPUT_DIR}`);
 }
 
@@ -187,20 +203,88 @@ function generateMarketPrices(numSteps: number): number[] {
   return prices;
 }
 
-function makeTradeDecision(trader: TraderState, marketPrice: number, step: number): { action: "buy" | "sell" | "none"; amount: number } {
-  // Simple strategy: buy if price is low, sell if holding and profitable
-  const lastStep = trader.steps[trader.steps.length - 1];
+function getStrategyForIndex(index: number): TraderState["strategy"] {
+  const strategies = [
+    "conservative",
+    "aggressive",
+    "momentum",
+    "meanReversion",
+    "random",
+  ] as const;
+  return strategies[index % strategies.length]!;
+}
 
-  // Buy logic: if price is below 45 and we have balance
-  if (marketPrice < 45 && trader.lamportsBalance > STEP_SIZE_LAMPORTS) {
-    const tokenAmount = Math.floor(STEP_SIZE_LAMPORTS / marketPrice);
-    return { action: "buy", amount: Math.max(1, tokenAmount) };
-  }
+function makeTradeDecision(
+  trader: TraderState,
+  marketPrice: number,
+  step: number,
+  currentTokenHeld: number,
+  avgCostBasis: number
+): { action: "buy" | "sell" | "none"; amount: number } {
+  const stepSinceLastSell = step - trader.lastSellStep;
+  const cooldown = {
+    conservative: 4,
+    aggressive: 2,
+    momentum: 3,
+    meanReversion: 3,
+    random: 2,
+  }[trader.strategy];
 
-  // Sell logic: if we're holding and profitable
-  if (lastStep && lastStep.tokenHeld > 0 && marketPrice > lastStep.avgCostBasis * 1.1) {
-    const sellAmount = Math.min(lastStep.tokenHeld, Math.max(1, Math.floor(lastStep.tokenHeld * 0.3)));
-    return { action: "sell", amount: sellAmount };
+  // Can only sell if we have holdings AND cooldown has passed
+  const canSell = currentTokenHeld > 0 && stepSinceLastSell >= cooldown;
+  const buySize = Math.max(1, Math.floor(STEP_SIZE_LAMPORTS / marketPrice));
+  const minSellAmount = 1;
+
+  switch (trader.strategy) {
+    case "conservative":
+      if (marketPrice < 45 && trader.lamportsBalance > STEP_SIZE_LAMPORTS) {
+        return { action: "buy", amount: buySize };
+      }
+      if (canSell && marketPrice > avgCostBasis * 1.12) {
+        const sellAmount = Math.max(minSellAmount, Math.floor(currentTokenHeld * 0.2));
+        return { action: "sell", amount: Math.min(currentTokenHeld, sellAmount) };
+      }
+      break;
+
+    case "aggressive":
+      if (marketPrice < 50 && trader.lamportsBalance > STEP_SIZE_LAMPORTS) {
+        return { action: "buy", amount: buySize };
+      }
+      if (canSell && marketPrice > avgCostBasis * 1.05) {
+        const sellAmount = Math.max(minSellAmount, Math.floor(currentTokenHeld * 0.4));
+        return { action: "sell", amount: Math.min(currentTokenHeld, sellAmount) };
+      }
+      break;
+
+    case "momentum":
+      if (marketPrice < 55 && trader.lamportsBalance > STEP_SIZE_LAMPORTS) {
+        return { action: "buy", amount: buySize };
+      }
+      if (canSell && marketPrice > avgCostBasis * 1.08) {
+        const sellAmount = Math.max(minSellAmount, Math.floor(currentTokenHeld * 0.3));
+        return { action: "sell", amount: Math.min(currentTokenHeld, sellAmount) };
+      }
+      break;
+
+    case "meanReversion":
+      if (marketPrice < 46 && trader.lamportsBalance > STEP_SIZE_LAMPORTS) {
+        return { action: "buy", amount: buySize };
+      }
+      if (canSell && marketPrice > 52 && marketPrice > avgCostBasis * 1.1) {
+        const sellAmount = Math.max(minSellAmount, Math.floor(currentTokenHeld * 0.25));
+        return { action: "sell", amount: Math.min(currentTokenHeld, sellAmount) };
+      }
+      break;
+
+    case "random":
+      if (Math.random() < 0.2 && trader.lamportsBalance > STEP_SIZE_LAMPORTS) {
+        return { action: "buy", amount: buySize };
+      }
+      if (canSell && Math.random() < 0.25 && marketPrice > avgCostBasis * 1.06) {
+        const sellAmount = Math.max(minSellAmount, Math.floor(currentTokenHeld * 0.35));
+        return { action: "sell", amount: Math.min(currentTokenHeld, sellAmount) };
+      }
+      break;
   }
 
   return { action: "none", amount: 0 };
@@ -295,6 +379,30 @@ function generateTraderCSVs(traders: TraderState[]) {
   });
 
   console.log(`  Trader CSVs: ${OUTPUT_DIR}/trader-{1..${NUM_TRADERS}}.csv`);
+}
+
+async function printTraderSummary(acbaAccount: any, traders: TraderState[]): Promise<void> {
+  for (let i = 0; i < traders.length; i++) {
+    const trader = traders[i];
+    if (!trader) {
+      continue;
+    }
+    const state = await acbaAccount.fetch(trader.profilePda);
+    const buys = trader.steps.filter((s) => s.action === "buy").length;
+    const sells = trader.steps.filter((s) => s.action === "sell").length;
+    const avgScaled = new BN(state.avgLamportsPerTokenScaled.toString());
+    const avgCostBasis = avgScaled.toNumber() / 1_000_000_000;
+
+    console.log(`\nTrader ${i + 1} (${trader.strategy})`);
+    console.log("  Buys:", buys);
+    console.log("  Sells:", sells);
+    console.log("  Holdings:", state.tokenUnitsHeld.toNumber());
+    console.log("  Avg Cost Basis:", avgCostBasis.toFixed(2));
+    console.log("  Realized PnL (lamports):", state.realizedPnlLamports.toNumber());
+    console.log("  Disciplined Buys:", state.disciplinedBuyCount.toNumber());
+    console.log("  Total Buys:", state.buyCount.toNumber());
+  }
+  console.log("===========================================================");
 }
 
 main().catch(console.error);
