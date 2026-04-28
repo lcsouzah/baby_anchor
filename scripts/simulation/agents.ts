@@ -75,7 +75,11 @@ export function makeTradeDecision(trader: TraderRuntime, context: DecisionContex
   let action: TradeDecision["action"] = "none";
   let reason = "no_signal";
 
-  if (strategy.name === "random") {
+  // Initial buy for new positions
+  if (context.holdings === 0 && context.price < strategy.initialBuyPriceThreshold) {
+    action = "buy";
+    reason = "initial_buy";
+  } else if (strategy.name === "random") {
     if (random() < 0.18) {
       action = "buy";
       reason = "random_buy";

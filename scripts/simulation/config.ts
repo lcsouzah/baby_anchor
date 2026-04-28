@@ -60,6 +60,7 @@ export const STRATEGIES: Record<StrategyName, StrategyProfile> = {
     drawdownSensitivity: 0.8,
     momentumSensitivity: 0.3,
     disciplineFactor: 0.95,
+    initialBuyPriceThreshold: 45,
   },
   aggressive: {
     name: "aggressive",
@@ -71,6 +72,7 @@ export const STRATEGIES: Record<StrategyName, StrategyProfile> = {
     drawdownSensitivity: 0.4,
     momentumSensitivity: 0.7,
     disciplineFactor: 0.45,
+    initialBuyPriceThreshold: 50,
   },
   momentum: {
     name: "momentum",
@@ -82,6 +84,7 @@ export const STRATEGIES: Record<StrategyName, StrategyProfile> = {
     drawdownSensitivity: 0.35,
     momentumSensitivity: 0.95,
     disciplineFactor: 0.55,
+    initialBuyPriceThreshold: 55,
   },
   meanReversion: {
     name: "meanReversion",
@@ -93,6 +96,7 @@ export const STRATEGIES: Record<StrategyName, StrategyProfile> = {
     drawdownSensitivity: 0.65,
     momentumSensitivity: 0.25,
     disciplineFactor: 0.7,
+    initialBuyPriceThreshold: 46,
   },
   random: {
     name: "random",
@@ -104,6 +108,7 @@ export const STRATEGIES: Record<StrategyName, StrategyProfile> = {
     drawdownSensitivity: 0.5,
     momentumSensitivity: 0.5,
     disciplineFactor: 0.5,
+    initialBuyPriceThreshold: 1000, // never use for random
   },
   panicSeller: {
     name: "panicSeller",
@@ -115,6 +120,7 @@ export const STRATEGIES: Record<StrategyName, StrategyProfile> = {
     drawdownSensitivity: 1.0,
     momentumSensitivity: 0.2,
     disciplineFactor: 0.35,
+    initialBuyPriceThreshold: 45,
   },
   disciplinedAccumulator: {
     name: "disciplinedAccumulator",
@@ -126,6 +132,7 @@ export const STRATEGIES: Record<StrategyName, StrategyProfile> = {
     drawdownSensitivity: 0.75,
     momentumSensitivity: 0.2,
     disciplineFactor: 1.0,
+    initialBuyPriceThreshold: 44,
   },
   dipBuyer: {
     name: "dipBuyer",
@@ -137,6 +144,7 @@ export const STRATEGIES: Record<StrategyName, StrategyProfile> = {
     drawdownSensitivity: 0.9,
     momentumSensitivity: 0.35,
     disciplineFactor: 0.8,
+    initialBuyPriceThreshold: 43,
   },
   scalper: {
     name: "scalper",
@@ -148,6 +156,7 @@ export const STRATEGIES: Record<StrategyName, StrategyProfile> = {
     drawdownSensitivity: 0.4,
     momentumSensitivity: 0.85,
     disciplineFactor: 0.6,
+    initialBuyPriceThreshold: 48,
   },
   whale: {
     name: "whale",
@@ -159,6 +168,7 @@ export const STRATEGIES: Record<StrategyName, StrategyProfile> = {
     drawdownSensitivity: 0.55,
     momentumSensitivity: 0.6,
     disciplineFactor: 0.65,
+    initialBuyPriceThreshold: 42,
   },
 };
 

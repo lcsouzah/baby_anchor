@@ -386,6 +386,22 @@ function printConsoleSummary(
     console.log(`  ${i + 1}. ${row.traderId} [${row.strategy}] ACBA=${row.acbaScore.toFixed(2)} PnL=${row.realizedPnlLamports.toFixed(0)}`);
   });
 
+  console.log("\nStrategy trade counts:");
+  const strategyStats = new Map<string, { buys: number; sells: number; count: number }>();
+  for (const trader of leaderboard) {
+    const key = trader.strategy;
+    if (!strategyStats.has(key)) {
+      strategyStats.set(key, { buys: 0, sells: 0, count: 0 });
+    }
+    const stats = strategyStats.get(key)!;
+    stats.buys += trader.totalBuys;
+    stats.sells += trader.totalSells;
+    stats.count += 1;
+  }
+  for (const [strategy, stats] of strategyStats) {
+    console.log(`  ${strategy}: ${stats.count} traders, ${stats.buys} buys, ${stats.sells} sells`);
+  }
+
   const totalTx = runs.reduce((sum, r) => sum + r.totalTransactions, 0);
   const rejected = runs.reduce((sum, r) => sum + r.totalRejectedActions, 0);
   console.log(`Total transactions sent: ${totalTx}`);
