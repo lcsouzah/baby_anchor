@@ -1,6 +1,5 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
-import type { BabyAnchor } from "../target/types/baby_anchor";
 import { PublicKey } from "@solana/web3.js";
 import assert from "assert";
 import BN from "bn.js";
@@ -9,8 +8,8 @@ describe("baby_anchor (ACBA profile)", () => {
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
 
-  const program = anchor.workspace.BabyAnchor as Program<BabyAnchor>;
-  const acbaAccount = program.account.acbaProfile!;
+  const program = anchor.workspace.BabyAnchor as Program<any>;
+  const acbaAccount = (program.account as any).acbaProfile;
 
   it("initialize -> record_buy twice -> verify totals + average", async () => {
 const newUser = anchor.web3.Keypair.generate();
@@ -27,7 +26,7 @@ const [profilePda] = PublicKey.findProgramAddressSync(
   program.programId
 );
 
-await program.methods
+await (program as any).methods
   .initializeProfile()
   .accountsPartial({
     profile: profilePda,
@@ -38,18 +37,19 @@ await program.methods
   .rpc();
 
     // Buy 1
-    await program.methods
+    await (program as any).methods
       .recordBuy(new BN(500_000_000), new BN(10))
       .accounts({ profile: profilePda, owner })
       .signers([newUser])
       .rpc();
 
     // Buy 2
-    await program.methods
+    await (program as any).methods
       .recordBuy(new BN(400_000_000), new BN(10))
       .accounts({ profile: profilePda, owner })
       .signers([newUser])
       .rpc();
+
 
     const acct = await acbaAccount.fetch(profilePda);
 
@@ -99,7 +99,7 @@ await program.methods
     );
 
     // Initialize profile PDA
-    await program.methods
+    await (program as any).methods
       .initializeProfile()
       .accountsPartial({
         profile: profilePda,
@@ -110,14 +110,14 @@ await program.methods
       .rpc();
 
     // Buy 1
-    await program.methods
+    await (program as any).methods
       .recordBuy(new BN(500_000_000), new BN(10))
       .accounts({ profile: profilePda, owner })
       .signers([newUser])
       .rpc();
 
     // Buy 2 (bad buy: higher price)
-    await program.methods
+    await (program as any).methods
       .recordBuy(new BN(700_000_000), new BN(10))
       .accounts({ profile: profilePda, owner })
       .signers([newUser])
